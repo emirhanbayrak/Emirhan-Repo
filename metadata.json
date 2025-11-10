@@ -1,5 +1,5 @@
 {
-  "name": "My Library Tracker",
-  "description": "A desktop-style application to manage your personal book library. Add books using a smart search, track your reading progress with visual progress bars, and filter your collection to find exactly what you're looking for.",
+  "name": "Bookworm Library Tracker",
+  "description": "A desktop application to track your book library, manage reading progress, and get AI-powered recommendations from your assistant, Bookworm.",
   "requestFramePermissions": []
 }
