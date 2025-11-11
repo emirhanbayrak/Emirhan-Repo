@@ -72,24 +72,53 @@ const OnboardingModal: React.FC<{ onNameSubmit: (name: string) => void }> = ({ o
 
 // Add Book Modal
 const AddBookModal: React.FC<{ onClose: () => void; onBookAdd: (book: Book) => void }> = ({ onClose, onBookAdd }) => {
-    const [query, setQuery] = useState('');
+    // Search state
+    const [titleQuery, setTitleQuery] = useState('');
+    const [authorQuery, setAuthorQuery] = useState('');
+    const [publisherQuery, setPublisherQuery] = useState('');
+    const [isbnQuery, setIsbnQuery] = useState('');
+
     const [results, setResults] = useState<ApiBook[]>([]);
     const [selectedBook, setSelectedBook] = useState<ApiBook | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const [hasSearched, setHasSearched] = useState(false);
+    const [isManualMode, setIsManualMode] = useState(false);
 
+    // Manual form state
+    const [manualTitle, setManualTitle] = useState('');
+    const [manualAuthors, setManualAuthors] = useState('');
+    const [manualPublisher, setManualPublisher] = useState('');
+    const [manualPublishedDate, setManualPublishedDate] = useState('');
+    const [manualDescription, setManualDescription] = useState('');
+    const [manualCategories, setManualCategories] = useState('');
+    const [manualImage, setManualImage] = useState('');
+
+    // Shared state for reading progress
     const [pageCount, setPageCount] = useState('');
     const [currentPage, setCurrentPage] = useState('');
     const [readingStatus, setReadingStatus] = useState<ReadingStatus>(ReadingStatus.PlanningToRead);
     
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!query.trim()) return;
+        if (!titleQuery.trim()) return;
+
+        let prompt = `Find books with the title "${titleQuery.trim()}".`;
+        const refinements: string[] = [];
+        if (authorQuery.trim()) refinements.push(`author: "${authorQuery.trim()}"`);
+        if (publisherQuery.trim()) refinements.push(`publisher: "${publisherQuery.trim()}"`);
+        if (isbnQuery.trim()) refinements.push(`ISBN: "${isbnQuery.trim()}"`);
+
+        if (refinements.length > 0) {
+          prompt += ` Refine the search with the following criteria: ${refinements.join(', ')}.`;
+        }
+
         setIsLoading(true);
+        setHasSearched(true);
         setError('');
         setResults([]);
         try {
-            const books = await searchBooks(query);
+            const books = await searchBooks(prompt);
             setResults(books);
         } catch (err) {
             setError('Failed to fetch books. Please try again.');
@@ -101,61 +130,191 @@ const AddBookModal: React.FC<{ onClose: () => void; onBookAdd: (book: Book) => v
     const handleSelectBook = (book: ApiBook) => {
         setSelectedBook(book);
         setPageCount(book.volumeInfo.pageCount?.toString() || '');
+        setCurrentPage('');
+        setReadingStatus(ReadingStatus.PlanningToRead);
     };
 
     const handleAddBook = () => {
-        if (!selectedBook || !pageCount) {
-             alert("Please enter the total number of pages.");
-             return;
-        }
-
-        const finalCurrentPage = (status: ReadingStatus) => {
-            if (status === ReadingStatus.Read) return parseInt(pageCount, 10);
+        const finalCurrentPage = (status: ReadingStatus, totalPages: number) => {
+            if (status === ReadingStatus.Read) return totalPages;
             if (status === ReadingStatus.Unread || status === ReadingStatus.PlanningToRead) return 0;
-            return parseInt(currentPage, 10) || 0;
+            const current = parseInt(currentPage, 10) || 0;
+            return Math.max(0, Math.min(current, totalPages));
         };
+    
+        const totalPages = parseInt(pageCount, 10);
+        if (isNaN(totalPages) || totalPages <= 0) {
+            alert("Please enter a valid number for total pages.");
+            return;
+        }
+    
+        let newBook: Book;
+    
+        if (selectedBook) {
+            newBook = {
+                id: selectedBook.id,
+                title: selectedBook.volumeInfo.title,
+                authors: selectedBook.volumeInfo.authors || ['Unknown Author'],
+                publisher: selectedBook.volumeInfo.publisher || 'Unknown Publisher',
+                publishedDate: selectedBook.volumeInfo.publishedDate || 'N/A',
+                description: selectedBook.volumeInfo.description || 'No description available.',
+                pageCount: totalPages,
+                categories: selectedBook.volumeInfo.categories || ['Uncategorized'],
+                imageLinks: {
+                    thumbnail: selectedBook.volumeInfo.imageLinks?.thumbnail || `https://picsum.photos/seed/${selectedBook.id}/300/480`
+                },
+                readingStatus: readingStatus,
+                currentPage: finalCurrentPage(readingStatus, totalPages)
+            };
+        } else { // Manual mode
+            if (!manualTitle.trim() || !manualAuthors.trim()) {
+                alert("Please fill in the required fields: Title and Author(s).");
+                return;
+            }
+            newBook = {
+                id: `manual_${Date.now()}`,
+                title: manualTitle.trim(),
+                authors: manualAuthors.split(',').map(a => a.trim()).filter(Boolean),
+                publisher: manualPublisher.trim() || 'Unknown Publisher',
+                publishedDate: manualPublishedDate.trim() || 'N/A',
+                description: manualDescription.trim() || 'No description available.',
+                pageCount: totalPages,
+                categories: manualCategories ? manualCategories.split(',').map(c => c.trim()).filter(Boolean) : ['Uncategorized'],
+                imageLinks: {
+                    thumbnail: manualImage.trim() || `https://picsum.photos/seed/${manualTitle.replace(/\s/g, '')}/300/480`
+                },
+                readingStatus: readingStatus,
+                currentPage: finalCurrentPage(readingStatus, totalPages)
+            };
+        }
         
-        const newBook: Book = {
-            id: selectedBook.id,
-            title: selectedBook.volumeInfo.title,
-            authors: selectedBook.volumeInfo.authors || ['Unknown Author'],
-            publisher: selectedBook.volumeInfo.publisher || 'Unknown Publisher',
-            publishedDate: selectedBook.volumeInfo.publishedDate || 'N/A',
-            description: selectedBook.volumeInfo.description || 'No description available.',
-            pageCount: parseInt(pageCount, 10),
-            categories: selectedBook.volumeInfo.categories || ['Uncategorized'],
-            imageLinks: {
-                thumbnail: selectedBook.volumeInfo.imageLinks?.thumbnail || `https://picsum.photos/seed/${selectedBook.id}/300/480`
-            },
-            readingStatus: readingStatus,
-            currentPage: finalCurrentPage(readingStatus)
-        };
         onBookAdd(newBook);
         onClose();
     };
 
     const needsCurrentPage = readingStatus === ReadingStatus.Reading || readingStatus === ReadingStatus.Dropped;
 
+    const commonProgressFields = (
+        <>
+            <div>
+                <label className="block text-sm font-medium text-gray-300">Reading Status</label>
+                <select value={readingStatus} onChange={(e) => setReadingStatus(e.target.value as ReadingStatus)} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    {Object.values(ReadingStatus).map(status => <option key={status} value={status}>{status}</option>)}
+                </select>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-300">Total Pages *</label>
+                <input type="number" value={pageCount} onChange={e => setPageCount(e.target.value)} required className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500" />
+            </div>
+            {needsCurrentPage && (
+                <div>
+                    <label className="block text-sm font-medium text-gray-300">Current Page</label>
+                    <input type="number" value={currentPage} onChange={e => setCurrentPage(e.target.value)} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+            )}
+        </>
+    );
+
     return (
         <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
             <div className="bg-gray-800 text-white p-6 rounded-lg shadow-2xl max-w-2xl w-full h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                {!selectedBook ? (
+                {selectedBook ? (
+                    // CONFIRMATION VIEW
+                    <div className="flex-grow overflow-y-auto pr-2 flex flex-col">
+                        <h2 className="text-2xl font-bold mb-4">Confirm Book Details</h2>
+                        <div className="flex gap-6 items-start">
+                            <img src={selectedBook.volumeInfo.imageLinks?.thumbnail || `https://picsum.photos/seed/${selectedBook.id}/200/320`} alt={selectedBook.volumeInfo.title} className="w-32 h-auto rounded-md shadow-lg" />
+                            <div>
+                               <h3 className="text-xl font-bold">{selectedBook.volumeInfo.title}</h3>
+                               <p className="text-gray-300">{selectedBook.volumeInfo.authors?.join(', ')}</p>
+                            </div>
+                        </div>
+                        <div className="mt-6 space-y-4">{commonProgressFields}</div>
+                        <div className="mt-auto pt-4 flex justify-end gap-3">
+                            <button onClick={() => setSelectedBook(null)} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-md">Back to Search</button>
+                            <button onClick={handleAddBook} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">Add to Library</button>
+                        </div>
+                    </div>
+                ) : isManualMode ? (
+                    // MANUAL ADD VIEW
+                    <>
+                        <h2 className="text-2xl font-bold mb-4">Add Book Manually</h2>
+                        <div className="flex-grow overflow-y-auto pr-2 space-y-3 text-sm">
+                            <div><label className="text-gray-400">Title *</label><input type="text" value={manualTitle} onChange={e => setManualTitle(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md mt-1 px-3 py-1.5" /></div>
+                            <div><label className="text-gray-400">Author(s) * <span className="text-xs">(comma separated)</span></label><input type="text" value={manualAuthors} onChange={e => setManualAuthors(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md mt-1 px-3 py-1.5" /></div>
+                            <div><label className="text-gray-400">Publisher</label><input type="text" value={manualPublisher} onChange={e => setManualPublisher(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md mt-1 px-3 py-1.5" /></div>
+                            <div><label className="text-gray-400">Published Date</label><input type="text" value={manualPublishedDate} onChange={e => setManualPublishedDate(e.target.value)} placeholder="YYYY-MM-DD" className="w-full bg-gray-700 border border-gray-600 rounded-md mt-1 px-3 py-1.5" /></div>
+                            <div><label className="text-gray-400">Cover Image URL</label><input type="text" value={manualImage} onChange={e => setManualImage(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md mt-1 px-3 py-1.5" /></div>
+                            <div><label className="text-gray-400">Categories <span className="text-xs">(comma separated)</span></label><input type="text" value={manualCategories} onChange={e => setManualCategories(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md mt-1 px-3 py-1.5" /></div>
+                            <div><label className="text-gray-400">Description</label><textarea value={manualDescription} onChange={e => setManualDescription(e.target.value)} rows={3} className="w-full bg-gray-700 border border-gray-600 rounded-md mt-1 px-3 py-1.5" /></div>
+                            <div className="space-y-3 pt-2 border-t border-gray-700">{commonProgressFields}</div>
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-gray-700 flex justify-end gap-3">
+                            <button onClick={() => setIsManualMode(false)} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-md">Back to Search</button>
+                            <button onClick={handleAddBook} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">Add to Library</button>
+                        </div>
+                    </>
+                ) : (
+                    // SEARCH VIEW
                     <>
                         <h2 className="text-2xl font-bold mb-4">Add a New Book</h2>
-                        <form onSubmit={handleSearch} className="flex gap-2 mb-4">
-                            <input
-                                type="text"
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                                className="flex-grow bg-gray-700 border border-gray-600 rounded-md px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                                placeholder="Search by title or author..."
-                            />
-                            <button type="submit" disabled={isLoading} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition-colors duration-300 flex items-center disabled:bg-indigo-400">
-                                {isLoading ? 'Searching...' : <SearchIcon className="w-5 h-5" />}
-                            </button>
+                        <form onSubmit={handleSearch} className="mb-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300">Kitap Adı *</label>
+                                    <input
+                                        type="text"
+                                        value={titleQuery}
+                                        onChange={(e) => setTitleQuery(e.target.value)}
+                                        className="mt-1 w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300">Yazar</label>
+                                    <input
+                                        type="text"
+                                        value={authorQuery}
+                                        onChange={(e) => setAuthorQuery(e.target.value)}
+                                        className="mt-1 w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300">Yayınevi</label>
+                                    <input
+                                        type="text"
+                                        value={publisherQuery}
+                                        onChange={(e) => setPublisherQuery(e.target.value)}
+                                        className="mt-1 w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300">ISBN</label>
+                                    <input
+                                        type="text"
+                                        value={isbnQuery}
+                                        onChange={(e) => setIsbnQuery(e.target.value)}
+                                        className="mt-1 w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                </div>
+                            </div>
+                            <div className="mt-4 flex justify-end">
+                                <button type="submit" disabled={isLoading} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-md transition-colors duration-300 flex items-center gap-2 disabled:bg-indigo-400">
+                                    {isLoading ? 'Aranıyor...' : <> <SearchIcon className="w-5 h-5" /> Ara </>}
+                                </button>
+                            </div>
                         </form>
                         <div className="flex-grow overflow-y-auto pr-2">
                            {error && <p className="text-red-400">{error}</p>}
+                           {isLoading && <div className="text-center p-4">Searching for books...</div>}
+                           {hasSearched && !isLoading && results.length === 0 && (
+                               <div className="text-center py-10">
+                                   <p className="text-gray-400">Arama kriterlerinize uygun kitap bulunamadı.</p>
+                                   <button onClick={() => setIsManualMode(true)} className="mt-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition-colors">
+                                       Kitabı Manuel Ekle
+                                   </button>
+                               </div>
+                           )}
                            {results.map(book => (
                                 <div key={book.id} onClick={() => handleSelectBook(book)} className="flex items-center gap-4 p-2 rounded-md hover:bg-gray-700 cursor-pointer transition-colors">
                                     <img src={book.volumeInfo.imageLinks?.thumbnail || `https://picsum.photos/seed/${book.id}/80/120`} alt={book.volumeInfo.title} className="w-12 h-auto rounded-sm" />
@@ -168,41 +327,6 @@ const AddBookModal: React.FC<{ onClose: () => void; onBookAdd: (book: Book) => v
                             ))}
                         </div>
                     </>
-                ) : (
-                    <div className="flex-grow overflow-y-auto pr-2">
-                        <h2 className="text-2xl font-bold mb-4">Confirm Book Details</h2>
-                        <div className="flex gap-6 items-start">
-                            <img src={selectedBook.volumeInfo.imageLinks?.thumbnail || `https://picsum.photos/seed/${selectedBook.id}/200/320`} alt={selectedBook.volumeInfo.title} className="w-32 h-auto rounded-md shadow-lg" />
-                            <div>
-                               <h3 className="text-xl font-bold">{selectedBook.volumeInfo.title}</h3>
-                               <p className="text-gray-300">{selectedBook.volumeInfo.authors?.join(', ')}</p>
-                            </div>
-                        </div>
-
-                        <div className="mt-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300">Reading Status</label>
-                                <select value={readingStatus} onChange={(e) => setReadingStatus(e.target.value as ReadingStatus)} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500">
-                                    {Object.values(ReadingStatus).map(status => <option key={status} value={status}>{status}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300">Total Pages</label>
-                                <input type="number" value={pageCount} onChange={e => setPageCount(e.target.value)} required className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500" />
-                            </div>
-                            {needsCurrentPage && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300">Current Page</label>
-                                    <input type="number" value={currentPage} onChange={e => setCurrentPage(e.target.value)} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500" />
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="mt-8 flex justify-end gap-3">
-                            <button onClick={() => setSelectedBook(null)} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-md">Back to Search</button>
-                            <button onClick={handleAddBook} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">Add to Library</button>
-                        </div>
-                    </div>
                 )}
             </div>
         </div>
