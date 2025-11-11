@@ -84,6 +84,36 @@ export const generateBookCover = async (title: string, description: string): Pro
   }
 };
 
+export const searchBookCovers = async (query: string): Promise<string[]> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `Search the web for 5 high-quality book cover images for a book titled "${query}". Provide a list of publicly accessible, direct HTTPS image URLs. The URLs must point directly to an image file (e.g., .jpg, .png, .webp) and not a webpage. Ensure the images are not from sites with hotlinking protection and are suitable for direct embedding.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            imageUrls: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+          },
+          required: ["imageUrls"],
+        },
+      },
+    });
+
+    const jsonString = response.text.trim();
+    const result = JSON.parse(jsonString);
+    return result.imageUrls || [];
+  } catch (error) {
+    console.error("Error searching for book covers:", error);
+    return [];
+  }
+};
+
+
 export const askBookworm = async (query: string, library: Book[]): Promise<string> => {
   try {
     const libraryContext = library.length > 0

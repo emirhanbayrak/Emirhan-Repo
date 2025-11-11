@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import type { Book } from '../types';
 import { ReadingStatus } from '../types';
-import { generateBookCover } from '../services/geminiService';
+import { generateBookCover, searchBookCovers } from '../services/geminiService';
 import ProgressBar from './ProgressBar';
-import { XMarkIcon, SparklesIcon, LinkIcon, CheckIcon } from './Icons';
+import { XMarkIcon, SparklesIcon, LinkIcon, CheckIcon, SearchIcon } from './Icons';
 
 interface BookDetailModalProps {
   book: Book;
@@ -20,6 +20,13 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({ book, onClose, onUpda
     const [currentStatus, setCurrentStatus] = useState<ReadingStatus>(book.readingStatus);
     const [currentPageInput, setCurrentPageInput] = useState<string>(book.currentPage.toString());
     const [isSaved, setIsSaved] = useState(false);
+
+    // New state for web search
+    const [isWebSearchOpen, setIsWebSearchOpen] = useState(false);
+    const [webSearchResults, setWebSearchResults] = useState<string[]>([]);
+    const [isSearchingImages, setIsSearchingImages] = useState(false);
+    const [selectedWebImage, setSelectedWebImage] = useState<string | null>(null);
+
 
     const handleGenerateCover = async () => {
         setIsGenerating(true);
@@ -79,14 +86,100 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({ book, onClose, onUpda
         setTimeout(() => setIsSaved(false), 2000);
     };
 
+    const handleOpenWebSearch = async () => {
+        setIsWebSearchOpen(true);
+        setSelectedWebImage(null);
+        setWebSearchResults([]);
+        setIsSearchingImages(true);
+        try {
+            const results = await searchBookCovers(book.title);
+            setWebSearchResults(results);
+        } catch (error) {
+            alert('Failed to search for covers. Please try again.');
+            setIsWebSearchOpen(false); // Close if search fails
+        } finally {
+            setIsSearchingImages(false);
+        }
+    };
+
+    const handleSelectWebImage = (url: string) => {
+        setSelectedWebImage(url);
+    };
+
+    const handleConfirmWebImage = () => {
+        if (selectedWebImage) {
+            onUpdateBook({ ...book, imageLinks: { thumbnail: selectedWebImage } });
+            setIsWebSearchOpen(false);
+        }
+    };
+
+    const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+        const target = e.currentTarget;
+        target.src = `https://via.placeholder.com/300/450/111827/FFFFFF/?text=Image+not+found`;
+        target.onerror = null; // Prevent infinite loops if the placeholder also fails
+    };
+
     const needsCurrentPage = currentStatus === ReadingStatus.Reading || currentStatus === ReadingStatus.Dropped;
+
+    const WebSearchModal = () => (
+        <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center z-20">
+            <div className="bg-gray-800 rounded-lg shadow-2xl max-w-3xl w-full h-[80vh] flex flex-col p-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold">Search for a Cover</h3>
+                    <button onClick={() => setIsWebSearchOpen(false)} className="text-gray-400 hover:text-white">
+                        <XMarkIcon className="w-6 h-6" />
+                    </button>
+                </div>
+                {isSearchingImages ? (
+                    <div className="flex-grow flex items-center justify-center">
+                        <div className="text-center">
+                            <div className="w-8 h-8 border-4 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                            <p>Searching for covers...</p>
+                        </div>
+                    </div>
+                ) : webSearchResults.length > 0 ? (
+                    <div className="flex-grow overflow-y-auto grid grid-cols-3 sm:grid-cols-4 gap-4 pr-2">
+                        {webSearchResults.map((url, index) => (
+                            <div key={index} className="aspect-[9/14] relative" onClick={() => handleSelectWebImage(url)}>
+                                <img
+                                    src={url}
+                                    alt={`Cover result ${index + 1}`}
+                                    className="w-full h-full object-cover rounded-md cursor-pointer bg-gray-700"
+                                    onError={handleImageError}
+                                />
+                                {selectedWebImage === url && (
+                                    <div className="absolute inset-0 border-4 border-indigo-500 rounded-md flex items-center justify-center bg-black/50">
+                                        <CheckIcon className="w-10 h-10 text-white" />
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex-grow flex items-center justify-center text-gray-500">
+                        <p>No image results found for "{book.title}".</p>
+                    </div>
+                )}
+                <div className="mt-auto pt-4 flex justify-end gap-3">
+                    <button onClick={() => setIsWebSearchOpen(false)} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-md">
+                        Cancel
+                    </button>
+                    <button onClick={handleConfirmWebImage} disabled={!selectedWebImage} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md disabled:bg-indigo-400 disabled:cursor-not-allowed">
+                        Set as Cover
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 
     return (
         <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
             <div 
-              className="bg-gray-800 text-white p-6 rounded-lg shadow-2xl max-w-4xl w-full h-[90vh] flex flex-col md:flex-row gap-6" 
+              className="relative bg-gray-800 text-white p-6 rounded-lg shadow-2xl max-w-4xl w-full h-[90vh] flex flex-col md:flex-row gap-6" 
               onClick={(e) => e.stopPropagation()}
             >
+                {isWebSearchOpen && <WebSearchModal />}
+
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white z-10">
                     <XMarkIcon className="w-6 h-6" />
                 </button>
@@ -116,6 +209,13 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({ book, onClose, onUpda
                                  <span>Generate with AI</span>
                                 </>
                             )}
+                        </button>
+                        <button 
+                            onClick={handleOpenWebSearch}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center gap-2 transition-colors"
+                        >
+                            <SearchIcon className="w-5 h-5"/>
+                            <span>Search on Web</span>
                         </button>
                         <button 
                             onClick={() => setShowUrlInput(!showUrlInput)}
