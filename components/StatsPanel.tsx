@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
-import type { Book } from '../types';
-import { ReadingStatus } from '../types';
-import ProgressBar from './ProgressBar';
-import { BookOpenIcon, ChartPieIcon, TagIcon } from './Icons';
+import type { Book } from '../types.ts';
+import { ReadingStatus } from '../types.ts';
+import ProgressBar from './ProgressBar.tsx';
+import { BookOpenIcon, ChartPieIcon, TagIcon } from './Icons.tsx';
 
 interface StatsPanelProps {
   books: Book[];

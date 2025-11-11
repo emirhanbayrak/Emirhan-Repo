@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import type { Book, Filters, ApiBook } from './types';
-import { ReadingStatus } from './types';
-import { searchBooks } from './services/geminiService';
-import BookCard from './components/BookCard';
-import BookDetailModal from './components/BookDetailModal';
-import StatsPanel from './components/StatsPanel';
-import Accordion from './components/Accordion';
-import BookwormChat from './components/BookwormChat';
-import { PlusIcon, SearchIcon, XMarkIcon, ChatBubbleLeftRightIcon } from './components/Icons';
+import type { Book, Filters, ApiBook } from './types.ts';
+import { ReadingStatus } from './types.ts';
+import { searchBooks } from './services/geminiService.ts';
+import BookCard from './components/BookCard.tsx';
+import BookDetailModal from './components/BookDetailModal.tsx';
+import StatsPanel from './components/StatsPanel.tsx';
+import Accordion from './components/Accordion.tsx';
+import BookwormChat from './components/BookwormChat.tsx';
+import { PlusIcon, SearchIcon, XMarkIcon, ChatBubbleLeftRightIcon } from './components/Icons.tsx';
 
 
 // --- Helper Functions ---

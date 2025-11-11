@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import type { Book } from '../types';
-import { ReadingStatus } from '../types';
-import { generateBookCover, searchBookCovers } from '../services/geminiService';
-import ProgressBar from './ProgressBar';
-import { XMarkIcon, SparklesIcon, LinkIcon, CheckIcon, SearchIcon } from './Icons';
+import type { Book } from '../types.ts';
+import { ReadingStatus } from '../types.ts';
+import { generateBookCover, searchBookCovers } from '../services/geminiService.ts';
+import ProgressBar from './ProgressBar.tsx';
+import { XMarkIcon, SparklesIcon, LinkIcon, CheckIcon, SearchIcon } from './Icons.tsx';
 
 interface BookDetailModalProps {
   book: Book;

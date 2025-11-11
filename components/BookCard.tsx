@@ -1,7 +1,7 @@
 import React from 'react';
-import type { Book } from '../types';
-import { ReadingStatus } from '../types';
-import ProgressBar from './ProgressBar';
+import type { Book } from '../types.ts';
+import { ReadingStatus } from '../types.ts';
+import ProgressBar from './ProgressBar.tsx';
 
 interface BookCardProps {
   book: Book;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { Book, ChatMessage } from '../types';
-import { askBookworm } from '../services/geminiService';
-import { XMarkIcon, PaperAirplaneIcon } from './Icons';
+import type { Book, ChatMessage } from '../types.ts';
+import { askBookworm } from '../services/geminiService.ts';
+import { XMarkIcon, PaperAirplaneIcon } from './Icons.tsx';
 
 interface BookwormChatProps {
     books: Book[];
