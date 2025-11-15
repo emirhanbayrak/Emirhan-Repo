@@ -1,7 +1,18 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import type { ApiBook, Book } from '../types.ts';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+let ai: GoogleGenAI | null = null;
+
+function getAiClient(): GoogleGenAI {
+  if (!ai) {
+    if (!process.env.API_KEY) {
+        console.error("Gemini API key is missing. Please set the API_KEY environment variable.");
+        throw new Error("API_KEY environment variable not set.");
+    }
+    ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  }
+  return ai;
+}
 
 const bookSchema = {
   type: Type.OBJECT,
@@ -30,7 +41,8 @@ const bookSchema = {
 
 export const searchBooks = async (query: string): Promise<ApiBook[]> => {
   try {
-    const response = await ai.models.generateContent({
+    const client = getAiClient();
+    const response = await client.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Search for books matching the query: "${query}". Return a list of up to 10 results. For each result, provide the id, title, authors, publisher, publishedDate, a brief description, pageCount, categories, and a thumbnail image link.`,
       config: {
@@ -58,9 +70,10 @@ export const searchBooks = async (query: string): Promise<ApiBook[]> => {
 
 export const generateBookCover = async (title: string, description: string): Promise<string> => {
   try {
+    const client = getAiClient();
     const prompt = `Generate a book cover for a book titled "${title}". The book's description is: "${description}". The cover should be visually appealing, artistic, and evocative of the book's themes. Avoid using any text on the cover.`;
 
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [{ text: prompt }],
@@ -86,7 +99,8 @@ export const generateBookCover = async (title: string, description: string): Pro
 
 export const searchBookCovers = async (query: string): Promise<string[]> => {
   try {
-    const response = await ai.models.generateContent({
+    const client = getAiClient();
+    const response = await client.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Search the web for 5 high-quality book cover images for a book titled "${query}". Provide a list of publicly accessible, direct HTTPS image URLs. The URLs must point directly to an image file (e.g., .jpg, .png, .webp) and not a webpage. Ensure the images are not from sites with hotlinking protection and are suitable for direct embedding.`,
       config: {
@@ -116,6 +130,7 @@ export const searchBookCovers = async (query: string): Promise<string[]> => {
 
 export const askBookworm = async (query: string, library: Book[]): Promise<string> => {
   try {
+    const client = getAiClient();
     const libraryContext = library.length > 0
       ? `Here is the user's current library for context: ${JSON.stringify(library.map(b => ({ title: b.title, authors: b.authors, readingStatus: b.readingStatus, categories: b.categories, pageCount: b.pageCount, description: b.description.substring(0, 150) + '...' })))}`
       : "The user's library is currently empty.";
@@ -128,7 +143,7 @@ For all other general questions, such as asking for new book recommendations, su
 
 ${libraryContext}`;
 
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: query,
       config: {
