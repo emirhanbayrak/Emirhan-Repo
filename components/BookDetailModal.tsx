@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import type { Book } from '../types.ts';
 import { ReadingStatus } from '../types.ts';
-import { generateBookCover, searchBookCovers } from '../services/geminiService.ts';
+import { searchBookCovers } from '../services/geminiService.ts';
 import ProgressBar from './ProgressBar.tsx';
-import { XMarkIcon, SparklesIcon, LinkIcon, CheckIcon, SearchIcon } from './Icons.tsx';
+import { XMarkIcon, LinkIcon, CheckIcon, SearchIcon } from './Icons.tsx';
 
 interface BookDetailModalProps {
   book: Book;
@@ -13,7 +14,6 @@ interface BookDetailModalProps {
 
 const BookDetailModal: React.FC<BookDetailModalProps> = ({ book, onClose, onUpdateBook }) => {
     const [imageUrl, setImageUrl] = useState('');
-    const [isGenerating, setIsGenerating] = useState(false);
     const [showUrlInput, setShowUrlInput] = useState(false);
     
     // State for updating reading status
@@ -27,18 +27,6 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({ book, onClose, onUpda
     const [isSearchingImages, setIsSearchingImages] = useState(false);
     const [selectedWebImage, setSelectedWebImage] = useState<string | null>(null);
 
-
-    const handleGenerateCover = async () => {
-        setIsGenerating(true);
-        try {
-            const newImage = await generateBookCover(book.title, book.description);
-            onUpdateBook({ ...book, imageLinks: { thumbnail: newImage } });
-        } catch (error) {
-            alert('Failed to generate cover. Please try again.');
-        } finally {
-            setIsGenerating(false);
-        }
-    };
     
     const handleUpdateCoverFromUrl = () => {
         if (imageUrl.trim()) {
@@ -193,23 +181,7 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({ book, onClose, onUpda
                     />
                     <div className="w-full mt-4 p-4 bg-gray-900/50 rounded-lg space-y-2">
                         <h4 className="text-md font-semibold text-gray-300 text-center border-b border-gray-700 pb-2 mb-2">Edit Cover</h4>
-                         <button 
-                            onClick={handleGenerateCover} 
-                            disabled={isGenerating}
-                            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center gap-2 transition-colors disabled:bg-purple-400 disabled:cursor-wait"
-                        >
-                            {isGenerating ? (
-                                <>
-                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                 <span>Generating...</span>
-                                </>
-                            ) : (
-                                <>
-                                 <SparklesIcon className="w-5 h-5" />
-                                 <span>Generate with AI</span>
-                                </>
-                            )}
-                        </button>
+                        
                         <button 
                             onClick={handleOpenWebSearch}
                             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center gap-2 transition-colors"

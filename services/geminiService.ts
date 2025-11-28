@@ -1,4 +1,5 @@
-import { GoogleGenAI, Type, Modality } from "@google/genai";
+
+import { GoogleGenAI, Type } from "@google/genai";
 import type { ApiBook, Book } from '../types.ts';
 
 let ai: GoogleGenAI | null = null;
@@ -65,35 +66,6 @@ export const searchBooks = async (query: string): Promise<ApiBook[]> => {
   } catch (error) {
     console.error("Error searching books:", error);
     return [];
-  }
-};
-
-export const generateBookCover = async (title: string, description: string): Promise<string> => {
-  try {
-    const client = getAiClient();
-    const prompt = `Generate a book cover for a book titled "${title}". The book's description is: "${description}". The cover should be visually appealing, artistic, and evocative of the book's themes. Avoid using any text on the cover.`;
-
-    const response = await client.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [{ text: prompt }],
-      },
-      config: {
-        responseModalities: [Modality.IMAGE],
-      },
-    });
-
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        const base64ImageBytes: string = part.inlineData.data;
-        return `data:image/png;base64,${base64ImageBytes}`;
-      }
-    }
-    throw new Error("No image data found in response.");
-
-  } catch (error) {
-    console.error("Error generating book cover:", error);
-    throw error;
   }
 };
 
