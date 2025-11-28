@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ApiBook, Book } from '../types.ts';
 
@@ -60,7 +59,10 @@ export const searchBooks = async (query: string): Promise<ApiBook[]> => {
       },
     });
 
-    const jsonString = response.text.trim();
+    const text = response.text || "";
+    const jsonString = text.trim();
+    if (!jsonString) return [];
+    
     const result = JSON.parse(jsonString);
     return result.items || [];
   } catch (error) {
@@ -90,7 +92,10 @@ export const searchBookCovers = async (query: string): Promise<string[]> => {
       },
     });
 
-    const jsonString = response.text.trim();
+    const text = response.text || "";
+    const jsonString = text.trim();
+    if (!jsonString) return [];
+
     const result = JSON.parse(jsonString);
     return result.imageUrls || [];
   } catch (error) {
@@ -123,7 +128,7 @@ ${libraryContext}`;
       }
     });
     
-    return response.text;
+    return response.text || "";
   } catch (error) {
     console.error("Error asking Bookworm:", error);
     return "I'm sorry, I encountered an error. Please try again.";
