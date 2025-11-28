@@ -1,8 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import type { Book, Filters, ApiBook } from './types.ts';
+import type { Book, Filters } from './types.ts';
 import { ReadingStatus } from './types.ts';
-import { searchBooks } from './services/geminiService.ts';
 import BookCard from './components/BookCard.tsx';
 import BookDetailModal from './components/BookDetailModal.tsx';
 import StatsPanel from './components/StatsPanel.tsx';

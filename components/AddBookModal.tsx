@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import type { ApiBook, Book } from '../types.ts';
 import { ReadingStatus } from '../types.ts';
 import { searchBooks } from '../services/geminiService.ts';
-import { SearchIcon, CloudArrowUpIcon, DocumentTextIcon, XMarkIcon, CheckIcon } from './Icons.tsx';
+import { SearchIcon, CloudArrowUpIcon, DocumentTextIcon, CheckIcon } from './Icons.tsx';
 
 // Separate component file or put in this file for simplicity
 const AddBookModal: React.FC<{ onClose: () => void; onBookAdd: (book: Book | Book[]) => void; books: Book[] }> = ({ onClose, onBookAdd, books }) => {
